@@ -60,7 +60,7 @@ func compute_min_mean_max(min int16, mean int16, max int16, new_temperature int1
 }
 
 func parse_line(max_station_name_length uint8, max_temp_value_length uint8, line string) (string, int16) {
-	var line_idx, station_name (uint8,string) = parse_station_name(max_station_name_length, line)
+	var (line_idx uint8 station_name string) = parse_station_name(max_station_name_length, line)
 	var station_temperature int16 = parse_station_temperature(max_temp_value_length, line[line_idx:])
 	return station_name, station_temperature
 }
@@ -91,7 +91,7 @@ func main() {
 	scanner := bufio.NewScanner(fp)
 	for scanner.Scan() {
 		line := scanner.Text()
-		var station_name, temperature (string, int16) = 
+		var (station_name string temperature int16) = 
 			parse_line(MAX_STATION_NAME_LENGTH, MAX_TEMP_VALUE_LENGTH, line)
 		
 		if _, exists := station_name_idx[station_name]; !exists {
