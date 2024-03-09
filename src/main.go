@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"runtime/pprof"
 	"time"
 )
 
@@ -76,21 +78,37 @@ func build_output_string(station_name string, min int16, mean int16, max int16) 
 
 func main() {
 
-	start_time := time.Now()
+	input_file := flag.String("i", "", "Input file")
+	cpu_profiling := flag.String("cp", "", "Output cpu profile file for time resource utilisation report")
+	flag.Parse()
 
+	if *cpu_profiling != "" {
+		fp, err := os.Create(*cpu_profiling)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(fp)
+		defer pprof.StopCPUProfile()
+	}
+
+	if *input_file == "" {
+		log.Fatal("Input file is required")
+	}
+
+	ifp, err := os.Open(*input_file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer ifp.Close()
+
+	start_time := time.Now()
 	min := [MAX_STATIONS]int16{0}
 	max := [MAX_STATIONS]int16{0}
 	mean := [MAX_STATIONS]int16{0}
 	var current_station_idx uint16 = 0
 	station_name_idx := make(map[string]uint16)
 
-	fp, err := os.Open(os.Args[1])
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer fp.Close()
-
-	scanner := bufio.NewScanner(fp)
+	scanner := bufio.NewScanner(ifp)
 	for scanner.Scan() {
 		line := scanner.Text()
 		station_name, temperature := parse_line(line)
