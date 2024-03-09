@@ -1,0 +1,12 @@
+Houston;20.5
+Zürich;-3.7
+Milwaukee;-7.1
+Atlanta;1.6
+Mogadishu;29.5
+Dakar;29.1
+Valencia;26.3
+Odienné;28.5
+Ouahigouya;23.6
+Dakar;3.4
+Atlanta;-31.6
+Atlanta;4.6
