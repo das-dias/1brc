@@ -15,7 +15,7 @@ const MAX_TEMP_VALUE_DECIMALS uint8 = 1
 
 func parse_station_name(max_length uint8, line string) (uint8, string) {
 	var i uint8 = 0
-	var temp_station_name [max_length]byte
+	temp_station_name := [max_length]byte{0}
 	for ; (i < max_length) && (line[i] != ';'); i++ {
 		temp_station_name[i] = line[i]
 	}
@@ -24,7 +24,7 @@ func parse_station_name(max_length uint8, line string) (uint8, string) {
 
 func parse_station_temperature(max_length uint8, line string) int16 {
 	var i uint8 = 0
-	var temperature_buffer [max_length]byte
+	temperature_buffer := [max_length]byte{0}
 	for ; (i < max_length) && (line[i] != 0); i++ {
 		temperature_buffer[i] = line[i]
 	}
@@ -81,28 +81,29 @@ func main() {
 	mean := [MAX_STATIONS]int16{0}
 	var current_station_idx uint16 = 0
 	station_name_idx := make(map[string]uint16)
+
 	fp, err := os.Open(os.Args[1])
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer fp.Close()
+
 	scanner := bufio.NewScanner(fp)
 	for scanner.Scan() {
 		line := scanner.Text()
-
 		var station_name, temperature (string, int16) = 
 			parse_line(MAX_STATION_NAME_LENGTH, MAX_TEMP_VALUE_LENGTH, line)
 		
 		if _, exists := station_name_idx[station_name]; !exists {
 			station_name_idx[station_name] = current_station_idx
-			mean[current_station_idx] = int_temp
-			min[current_station_idx] = int_temp
-			max[current_station_idx] = int_temp
+			mean[current_station_idx] = temperature
+			min[current_station_idx] = temperature
+			max[current_station_idx] = temperature
 			current_station_idx++
 		}
 		var station_idx uint16 = station_name_idx[station_name]
 		var new_min, new_mean, new_max int16 = 
-			compute_min_mean_max(min[station_idx], mean[station_idx], max[station_idx], int_temp)
+			compute_min_mean_max(min[station_idx], mean[station_idx], max[station_idx], temperature)
 		min[station_idx] = new_min
 		mean[station_idx] = new_mean
 		max[station_idx] = new_max
