@@ -13,6 +13,65 @@ const MAX_STATION_NAME_LENGTH uint8 = 100
 const MAX_TEMP_VALUE_LENGTH uint8 = 5
 const MAX_TEMP_VALUE_DECIMALS uint8 = 1
 
+func parse_station_name(max_length uint8, line string) (uint8, string) {
+	var i uint8 = 0
+	var temp_station_name [max_length]byte
+	for ; (i < max_length) && (line[i] != ';'); i++ {
+		temp_station_name[i] = line[i]
+	}
+	return i, string(temp_station_name)
+}
+
+func parse_station_temperature(max_length uint8, line string) int16 {
+	var i uint8 = 0
+	var temperature_buffer [max_length]byte
+	for ; (i < max_length) && (line[i] != 0); i++ {
+		temperature_buffer[i] = line[i]
+	}
+	var uint_temp uint16 = 0
+	i = 0
+	if temperature_buffer[0] == '-' {
+		i = 1
+	}
+	for ; (temperature_buffer[i] != '.') && (temperature_buffer[i] != 0); i++ {
+		uint_temp = (uint_temp * 10) + uint16(temperature_buffer[i]-'0')
+	}
+	i++ // ignore the '.' separation point
+	for ; (i < max_length) && (temperature_buffer[i] != 0); i++ {
+		uint_temp = (uint_temp * 10) + uint16(temperature_buffer[i]-'0')
+	}
+	var int_temp int16 = int16(uint_temp)
+	if temperature_buffer[0] == '-' {
+		int_temp = -int_temp
+	}
+	return int_temp
+}
+
+func compute_min_mean_max(min int16, mean int16, max int16, new_temperature int16) (int16, int16, int16) {
+	var new_mean int16 = (mean + new_temperature) >> 1
+	var new_min int16 = min
+	var new_max int16 = max
+	if new_temperature < min {
+		new_min = new_temperature
+	} else { //if int_temp > max[station_idx] { // if it is not the new minimum it is the new maximum or equal
+		new_max = new_temperature
+	}
+	return new_min, new_mean, new_max
+}
+
+func parse_line(max_station_name_length uint8, max_temp_value_length uint8, line string) (string, int16) {
+	var line_idx, station_name (uint8,string) = parse_station_name(max_station_name_length, line)
+	var station_temperature int16 = parse_station_temperature(max_temp_value_length, line[line_idx:])
+	return station_name, station_temperature
+}
+
+func build_output_string(station_name string, min int16, mean int16, max int16) string {
+	min := float32(min) / 10.0
+	max := float32(max) / 10.0
+	mean := float32(mean) / 10.0
+	return fmt.Sprintf("%s;%.1f;%.1f;%.1f", station_name, min, mean, max)
+}
+
 func main() {
 
 	start_time := time.Now()
@@ -22,8 +81,6 @@ func main() {
 	mean := [MAX_STATIONS]int16{0}
 	var current_station_idx uint16 = 0
 	station_name_idx := make(map[string]uint16)
-	temp_station_name := [MAX_STATION_NAME_LENGTH]byte{0}
-	station_temperature_buffer := [MAX_TEMP_VALUE_LENGTH]byte{0} // string value = '-99.9' ; '99.9'
 	fp, err := os.Open(os.Args[1])
 	if err != nil {
 		log.Fatal(err)
@@ -32,65 +89,27 @@ func main() {
 	scanner := bufio.NewScanner(fp)
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Printf("Reading line: %s\n", line)
-		var i uint8 = 0
-		// read station's name
-		for ; line[i] != ';'; i++ {
-			temp_station_name[i] = line[i]
-		}
-		i++ // ignore the ';' utf-8 char and read station's temperature byte representation
-		var k uint8 = 0
-		for _, ch := range line[i:] {
-			fmt.Printf("Reading temp char: %c \n", ch)
-			station_temperature_buffer[k] = byte(ch)
-			k++
-		}
-		// convert the temperature bytes to its integer representation, considering the decimal parts ar integers as well
-		var uint_temp uint16 = 0
-		k = 0
-		if station_temperature_buffer[0] == '-' {
-			k = 1
-		}
-		// convert the temperature to an integer
-		for ; station_temperature_buffer[k] != '.'; k++ {
-			uint_temp = (uint_temp * 10) + uint16(station_temperature_buffer[k]-'0')
-		}
-		k++ // ignore the '.' separation point
-		for ; (k < MAX_TEMP_VALUE_LENGTH) && (station_temperature_buffer[k] != 0); k++ {
-			uint_temp = (uint_temp * 10) + uint16(station_temperature_buffer[k]-'0')
-		}
-		// setup the sign bits
-		var int_temp int16 = int16(uint_temp)
-		if station_temperature_buffer[0] == '-' {
-			int_temp = -int_temp
-		}
-		sname := string(temp_station_name[:])
-		if _, exists := station_name_idx[sname]; !exists {
-			station_name_idx[sname] = current_station_idx
+
+		var station_name, temperature (string, int16) = 
+			parse_line(MAX_STATION_NAME_LENGTH, MAX_TEMP_VALUE_LENGTH, line)
+		
+		if _, exists := station_name_idx[station_name]; !exists {
+			station_name_idx[station_name] = current_station_idx
 			mean[current_station_idx] = int_temp
 			min[current_station_idx] = int_temp
 			max[current_station_idx] = int_temp
 			current_station_idx++
 		}
-		var station_idx uint16 = station_name_idx[sname]
-		// get the float_temp with only the mantissa to perform arithmetic operations
-		temp_station_name = [MAX_STATION_NAME_LENGTH]byte{0}
-		station_temperature_buffer = [MAX_TEMP_VALUE_LENGTH]byte{0}
-		var sum int16 = mean[station_idx] + int_temp
-		mean[station_idx] = sum >> 1
-
-		if int_temp < min[station_idx] {
-			min[station_idx] = int_temp
-		} else { //if int_temp > max[station_idx] { // if it is not the new minimum it is the new maximum or equal
-			max[station_idx] = int_temp
-		}
+		var station_idx uint16 = station_name_idx[station_name]
+		var new_min, new_mean, new_max int16 = 
+			compute_min_mean_max(min[station_idx], mean[station_idx], max[station_idx], int_temp)
+		min[station_idx] = new_min
+		mean[station_idx] = new_mean
+		max[station_idx] = new_max
 	}
 
-	for sname, sidx := range station_name_idx {
-		min := float32(int16(min[sidx])) / 10.0
-		max := float32(int16(max[sidx])) / 10.0
-		mean := float32(int16(mean[sidx])) / 10.0
-		fmt.Printf("%s;%.1f;%.1f;%.1f\n", sname, min, mean, max)
+	for station_name, station_idx := range station_name_idx {
+		fmt.Printf("%s\n", build_output(station_name, min[station_idx], mean[station_idx], max[station_idx]))
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
