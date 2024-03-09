@@ -11,7 +11,6 @@ import (
 const MAX_STATIONS uint32 = 100000
 const MAX_STATION_NAME_LENGTH uint8 = 100
 const MAX_TEMP_VALUE_LENGTH uint8 = 5
-const MAX_TEMP_VALUE_DECIMALS uint8 = 1
 
 func parse_station_name(line string) (uint8, string) {
 	var i uint8 = 0
